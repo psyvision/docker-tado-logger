@@ -14,14 +14,14 @@ const auth = {
     password: process.env.TADO_PASSWORD
 };
 
-// InfluxDB
-//const DB_HOST = 'elcap.ddns.net';
-const DB_HOST = 'localhost';
-const DB_NAME = 'tado';
+const Database = {
+    host: process.env.DATABASE_HOST,
+    name: 'tado'
+};
 
 var Influx = require('influx');
 const influx = new Influx.InfluxDB({
-    host: DB_HOST,
+    host: Database.host,
 });
 
 const logInterval = 10*60*1000; /* logging interval in ms */
@@ -50,7 +50,7 @@ function dbCreatePolicy() {
 
         influx.createRetentionPolicy('Forever',
             {
-                database: DB_NAME,
+                database: Database.name,
                 duration: Influx.INF,
                 isDefault: true,
                 replication: 1
@@ -62,10 +62,10 @@ function dbCreatePolicy() {
 
 function initDB() {
     return new Promise((resolve, reject) => {
-        influx.createDatabase(DB_NAME)
+        influx.createDatabase(Database.name)
             .then(result => {
                 dbCreatePolicy();
-                console.log('Connected to database:', 'http://' + DB_HOST + '/' + DB_NAME);
+                console.log('Connected to database:', 'http://' + Database.host + '/' + Database.name);
                 resolve(true);
             }, result => {
                 reject(result);
@@ -112,7 +112,7 @@ function tadoLogger() {
                     }
                 ],
                     {
-                        database: DB_NAME,
+                        database: Database.name,
                         retentionPolicy: 'Forever',
                         precision: 's'
                     }
