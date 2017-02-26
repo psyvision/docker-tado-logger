@@ -25,7 +25,10 @@ module.exports = class Database {
                     measurement: 'heating',
                     fields: {
                         temperature: Influx.FieldType.FLOAT,
-                        humidity: Influx.FieldType.FLOAT
+                        humidity: Influx.FieldType.FLOAT,
+                        power: Influx.FieldType.FLOAT,
+                        state: Influx.FieldType.BOOLEAN,
+                        target: Influx.FieldType.FLOAT
                     },
                     tags: [
                         'zone'
@@ -90,12 +93,13 @@ module.exports = class Database {
         });
     }
 
-    logHeating(zone, temperature, humidity) {
-        write(
+    logHeating(zone, temperature, humidity, power) {
+        this.write(
             'heating', 
             { 
                 temperature: temperature, 
-                humidity: humidity
+                humidity: humidity,
+                power: power
             },
             {
                 zone: zone

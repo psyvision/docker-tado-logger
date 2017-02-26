@@ -20,7 +20,7 @@ var auth = {
     password: process.env.TADO_PASSWORD
 };
 
-const logInterval = process.env.LOG_INTERVAL || 10 * 60 * 1000; /* logging interval in ms */
+const logInterval = process.env.LOG_INTERVAL || 5 * 60 * 1000; /* logging interval in ms */
 var homeId;
 var home;
 var zones;
@@ -91,6 +91,8 @@ function tadoSetup() {
 }
 
 function tadoLogger() {
+    
+    //api.refreshToken();
 
     for (var zone of zones) {
         api.state(homeId, zone.id)
@@ -106,12 +108,17 @@ function tadoLogger() {
 
                 if (z.type === 'HEATING') {
 
+                    console.log(r);
+
                     console.log('Data from: [%s]: [%s]', z.name, r.sensorDataPoints.insideTemperature.celsius);
                     
                     database.write('heating', 
                             {
                                 temperature: r.sensorDataPoints.insideTemperature.celsius,
                                 humidity: r.sensorDataPoints.humidity.percentage,
+                                power: r.activityDataPoints.heatingPower.percentage,
+                                state: r.setting.power === 'ON',
+                                target: r.setting.temperature === null ? 0 : r.setting.temperature.celsius
                             },
                             {zone: z.name}
                     ).then(result => {
@@ -147,6 +154,17 @@ function tadoLogger() {
 
 }
 
+function tadoRefresh() {
+
+    api.refreshToken()
+    .catch(err => {
+        
+        console.log(err);
+    });
+
+    setTimeout(tadoRefresh, 2 * 60 * 1000);
+}
+
 console.log('api Login: ', process.env.TADO_LOGIN);
 console.log('DB Host: ', process.env.DATABASE_HOST);
 /*
@@ -159,8 +177,10 @@ const app = express()
 Promise.all([database.create(), tadoSetup()])
     .then(results => {
         console.log('Logging started...');
+        
         tadoLogger();
-
+        
+        tadoRefresh();
         /*http.createServer(app).listen(3000, function() {
             
         });*/
