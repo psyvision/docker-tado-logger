@@ -33,6 +33,8 @@ var zones;
 
 function authorize(login, pass) {
     return new Promise((resolve, reject) => {
+        console.log('Authorizing:', console.login);
+
         tado.login(login, pass)
             .then(result => {
                 console.log('TADO authorization successful');
@@ -51,7 +53,7 @@ function dbCreatePolicy() {
         influx.createRetentionPolicy('Forever',
             {
                 database: Database.name,
-                duration: Influx.INF,
+                duration: 'INF',
                 isDefault: true,
                 replication: 1
             })
@@ -137,4 +139,6 @@ Promise.all([initDB(), tadoSetup()])
         tadoLogger();
     }, results => {
         console.log('Initialization failed [%s]. Cannot start logging.', results.code);
+    }).catch(reason => {
+        console.log('Caught: ', reason)
     });
