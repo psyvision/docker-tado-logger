@@ -1,0 +1,25 @@
+{
+  "name": "docker-tado",
+  "version": "1.0.0",
+  "description": "Tado logging docker",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/psyvision/docker-tado.git"
+  },
+  "author": "Richard Caunt",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/psyvision/docker-tado/issues"
+  },
+  "homepage": "https://github.com/psyvision/docker-tado",
+  "dependencies": {
+    "influx": "^5.0.4",
+    "moment": "^2.17.1",
+    "node-tado": "0.0.2",
+    "request": "^2.79.0",
+    "winston": "^2.3.1"
+  }
+}
