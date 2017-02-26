@@ -20,7 +20,7 @@ var auth = {
     password: process.env.TADO_PASSWORD
 };
 
-const logInterval = 1 * 60 * 1000; /* logging interval in ms */
+const logInterval = process.env.LOG_INTERVAL || 10 * 60 * 1000; /* logging interval in ms */
 var homeId;
 var home;
 var zones;
