@@ -133,6 +133,9 @@ function tadoLogger() {
     }
 }
 
+console.log('Tado Login: ', process.env.TADO_LOGIN);
+console.log('DB Host: ', process.env.DATABASE_HOST);
+
 Promise.all([initDB(), tadoSetup()])
     .then(results => {
         console.log('Logging started...');
@@ -141,4 +144,4 @@ Promise.all([initDB(), tadoSetup()])
         console.log('Initialization failed [%s]. Cannot start logging.', results.code);
     }).catch(reason => {
         console.log('Caught: ', reason)
-    });
+    }); 
