@@ -16,8 +16,11 @@ const REFERER = 'https://my.tado.com/';
 
 module.exports = class ApiClient {
     login(username, password) {
+        this.username = username;
+        this.password = password;
+
         return new Promise((resolve, reject) => {
-            request.post({
+            /*request.post({
                 url: BASE_URL + '/oauth/token',
                 qs: {
                     client_id: CLIENT_ID,
@@ -34,7 +37,8 @@ module.exports = class ApiClient {
                     this.saveToken(result);
                     resolve(true);
                 }
-            });
+            });*/
+            resolve(true);
         });
     }
 
@@ -48,7 +52,7 @@ module.exports = class ApiClient {
 
     refreshToken() {
         return new Promise((resolve, reject) => {
-            if (!this.token) {
+            /*if (!this.token) {
                 console.log('no token');
                 return reject(new Error('not logged in'));
             }
@@ -80,7 +84,8 @@ module.exports = class ApiClient {
                     this.saveToken(result);
                     resolve(true);
                 }
-            });
+            });*/
+            resolve(true);
         });
     }
 
@@ -97,9 +102,13 @@ module.exports = class ApiClient {
                         headers: {
                             referer: REFERER
                         },
-                        auth: {
-                            bearer: this.token.access_token
+                        qs: {
+                            username: this.username,
+                            password: this.password
                         }
+                        /*auth: {
+                            bearer: this.token.access_token
+                        }*/
                     }, (err, response, result) => {
                         if (err || response.statusCode !== 200) {
                             reject(err || result);

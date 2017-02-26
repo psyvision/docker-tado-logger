@@ -108,7 +108,7 @@ function tadoLogger() {
 
                 if (z.type === 'HEATING') {
 
-                    console.log(r);
+                    //console.log(r);
 
                     console.log('Data from: [%s]: [%s]', z.name, r.sensorDataPoints.insideTemperature.celsius);
                     
