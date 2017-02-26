@@ -3,75 +3,57 @@
 
 'use strict';
 
-var tado = require('node-tado').Client;
+var ApiClient = require('./client');
+var Database = require('./database')
+
+var database = new Database({
+    host: process.env.DATABASE_HOST
+});
+
+var api = new ApiClient();
+
 var moment = require('moment');
-var winston = require('winston');
-winston.level = 'debug';
 
 // Authentication via ENV variables
-const auth = {
+var auth = {
     login: process.env.TADO_LOGIN,
     password: process.env.TADO_PASSWORD
 };
 
-const Database = {
-    host: process.env.DATABASE_HOST,
-    name: 'tado'
-};
-
-var Influx = require('influx');
-const influx = new Influx.InfluxDB({
-    host: Database.host,
-});
-
-const logInterval = 10*60*1000; /* logging interval in ms */
+const logInterval = 1 * 60 * 1000; /* logging interval in ms */
 var homeId;
 var home;
 var zones;
+
+function getZone(zoneId) {
+    for (var zone of zones) {
+        if (zone.id === zoneId) {
+            return zone;
+        }
+    }
+    return null;
+}
 
 /* Misc functions */
 
 function authorize(login, pass) {
     return new Promise((resolve, reject) => {
-        console.log('Authorizing:', console.login);
+        console.log('Authorizing:', login);
 
-        tado.login(login, pass)
-            .then(result => {
-                console.log('TADO authorization successful');
-                resolve(true);
-            })
-            .catch(result => {
-                console.log('TADO authorization failed! ', result);
-                reject(false);
-            });
-    });
-}
+        try {
+            api.login(login, pass)
+                .then(result => {
+                    console.log('api authorization successful');
+                    resolve(true);
+                })
+                .catch(result => {
+                    console.log('api authorization failed! ', result);
+                    reject(false);
+                });
 
-function dbCreatePolicy() {
-    return new Promise((resolve,reject) => {
-
-        influx.createRetentionPolicy('Forever',
-            {
-                database: Database.name,
-                duration: 'INF',
-                isDefault: true,
-                replication: 1
-            })
-            .then(resolve(true))
-            .catch(reject(false));
-    });
-};
-
-function initDB() {
-    return new Promise((resolve, reject) => {
-        influx.createDatabase(Database.name)
-            .then(result => {
-                dbCreatePolicy();
-                console.log('Connected to database:', 'http://' + Database.host + '/' + Database.name);
-                resolve(true);
-            }, result => {
-                reject(result);
-            })
+        } catch (ex) {
+            console.log(ex);
+        }
     });
 }
 
@@ -81,20 +63,29 @@ function tadoSetup() {
 
         authorize(auth.login, auth.password)
             .then(result => {
-                tado.me()
-                    .then(result => { 
+                api.me()
+                    .then(result => {
                         homeId = result.homes[0].id;
-                        
-                        Promise.all([tado.home(homeId), tado.zones(homeId)])
+
+                        console.log('Home ID:', homeId);
+
+                        Promise.all([api.home(homeId), api.zones(homeId)])
                             .then(results => {
                                 home = results[0];
                                 zones = results[1];
+
+                                console.log('Zones:', results[1]);
+
                                 resolve(true);
                             });
                     })
-                    .catch(err => {console.log(err)})
+                    .catch(err => {
+                        console.log(err)
+                    })
             }, result => {
                 reject(false);
+            }).catch(err => {
+                console.error('Setup error');
             });
     });
 }
@@ -102,46 +93,82 @@ function tadoSetup() {
 function tadoLogger() {
 
     for (var zone of zones) {
-        tado.state(homeId, zone.id)
+        api.state(homeId, zone.id)
             .then((result) => {
-                influx.writeMeasurement('thermostat', [
-                    {
-                        tags: {zone: zone.name},
-                        fields: {
-                            temperature: result.sensorDataPoints.insideTemperature.celsius,
-                            humidity: result.sensorDataPoints.humidity.percentage,
-                        },
-                    }
-                ],
-                    {
-                        database: Database.name,
-                        retentionPolicy: 'Forever',
-                        precision: 's'
-                    }
-                ).then(result => {
-                    console.log('[%s] Data written to db', moment().toString());
-                })
-                .catch(err => {
-                        console.log('[%s] Error writing to db: ', moment().toString(), err);
-                });
+
+                var r = result.result;
+                var p = result.passback;
+
+                //console.log(r);
+                //console.log(p);
+
+                var z = getZone(p.zoneId);
+
+                if (z.type === 'HEATING') {
+
+                    console.log('Data from: [%s]: [%s]', z.name, r.sensorDataPoints.insideTemperature.celsius);
+                    
+                    database.write('heating', 
+                            {
+                                temperature: r.sensorDataPoints.insideTemperature.celsius,
+                                humidity: r.sensorDataPoints.humidity.percentage,
+                            },
+                            {zone: z.name}
+                    ).then(result => {
+                        console.log('[%s] Data written to db', moment().toString());
+                    })
+                    .catch(err => {
+                            console.log('[%s] Error writing to db: ', moment().toString(), err);
+                    });
+                }   else if (z.type === 'HOT_WATER') {
+
+                    console.log('Data from: [%s]: [%s]', z.name, r.setting.power);
+                    
+                    database.write('water', 
+                            {
+                                state: r.setting.power === 'ON'
+                            }
+                    ).then(result => {
+                        console.log('[%s] Data written to db', moment().toString());
+                    })
+                    .catch(err => {
+                            console.log('[%s] Error writing to db: ', moment().toString(), err);
+                    });
+                }          
+
             })
             .catch(err => {
-                console.error('[%s] Error reading from the thermostat: ', moment().toString(), err.errors[0].code);
+                console.error('[%s] Error reading from the thermostat: ', moment().toString(), err);
             });
-            
-        setTimeout(tadoLogger, logInterval);
+
     }
+
+    setTimeout(tadoLogger, logInterval);
+
 }
 
-console.log('Tado Login: ', process.env.TADO_LOGIN);
+console.log('api Login: ', process.env.TADO_LOGIN);
 console.log('DB Host: ', process.env.DATABASE_HOST);
+/*
+    const express = require('express')
+const http = require('http')
+const os = require('os')
 
-Promise.all([initDB(), tadoSetup()])
+const app = express()
+*/
+Promise.all([database.create(), tadoSetup()])
     .then(results => {
         console.log('Logging started...');
         tadoLogger();
+
+        /*http.createServer(app).listen(3000, function() {
+            
+        });*/
     }, results => {
         console.log('Initialization failed [%s]. Cannot start logging.', results.code);
     }).catch(reason => {
         console.log('Caught: ', reason)
-    }); 
+    });
+
+
+
