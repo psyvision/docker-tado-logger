@@ -91,8 +91,26 @@ function tadoSetup() {
 }
 
 function tadoLogger() {
-    
+
     //api.refreshToken();
+
+    api.weather(homeId)
+        .then((result) => {
+            var r = result;
+
+            if (r.outsideTemperature) {
+                database.write('weather', {
+                    temperature: r.outsideTemperature.celsius,
+                    solarIntensity: r.solarIntensity.percentage
+                }, {
+                                    })
+            }
+
+
+        })
+        .catch(err => {
+            console.error('[%s] Error reading from the weather: ', moment().toString(), err);
+        });
 
     for (var zone of zones) {
         api.state(homeId, zone.id)
@@ -111,37 +129,34 @@ function tadoLogger() {
                     //console.log(r);
 
                     console.log('Data from: [%s]: [%s]', z.name, r.sensorDataPoints.insideTemperature.celsius);
-                    
-                    database.write('heating', 
-                            {
-                                temperature: r.sensorDataPoints.insideTemperature.celsius,
-                                humidity: r.sensorDataPoints.humidity.percentage,
-                                power: r.activityDataPoints.heatingPower.percentage,
-                                state: r.setting.power === 'ON',
-                                target: r.setting.temperature === null ? 0 : r.setting.temperature.celsius
-                            },
-                            {zone: z.name}
-                    ).then(result => {
-                        console.log('[%s] Data written to db', moment().toString());
-                    })
-                    .catch(err => {
+
+                    database.write('heating', {
+                            temperature: r.sensorDataPoints.insideTemperature.celsius,
+                            humidity: r.sensorDataPoints.humidity.percentage,
+                            power: r.activityDataPoints.heatingPower.percentage,
+                            state: r.setting.power === 'ON',
+                            target: r.setting.temperature === null ? 0 : r.setting.temperature.celsius
+                        }, {
+                            zone: z.name
+                        }).then(result => {
+                            console.log('[%s] Data written to db', moment().toString());
+                        })
+                        .catch(err => {
                             console.log('[%s] Error writing to db: ', moment().toString(), err);
-                    });
-                }   else if (z.type === 'HOT_WATER') {
+                        });
+                } else if (z.type === 'HOT_WATER') {
 
                     console.log('Data from: [%s]: [%s]', z.name, r.setting.power);
-                    
-                    database.write('water', 
-                            {
-                                state: r.setting.power === 'ON'
-                            }
-                    ).then(result => {
-                        console.log('[%s] Data written to db', moment().toString());
-                    })
-                    .catch(err => {
+
+                    database.write('water', {
+                            state: r.setting.power === 'ON'
+                        }).then(result => {
+                            console.log('[%s] Data written to db', moment().toString());
+                        })
+                        .catch(err => {
                             console.log('[%s] Error writing to db: ', moment().toString(), err);
-                    });
-                }          
+                        });
+                }
 
             })
             .catch(err => {
@@ -157,10 +172,10 @@ function tadoLogger() {
 function tadoRefresh() {
 
     api.refreshToken()
-    .catch(err => {
-        
-        console.log(err);
-    });
+        .catch(err => {
+
+            console.log(err);
+        });
 
     setTimeout(tadoRefresh, 2 * 60 * 1000);
 }
@@ -177,9 +192,9 @@ const app = express()
 Promise.all([database.create(), tadoSetup()])
     .then(results => {
         console.log('Logging started...');
-        
+
         tadoLogger();
-        
+
         tadoRefresh();
         /*http.createServer(app).listen(3000, function() {
             
@@ -189,6 +204,3 @@ Promise.all([database.create(), tadoSetup()])
     }).catch(reason => {
         console.log('Caught: ', reason)
     });
-
-
-
